@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8" />
+	<title>todos</title>
+	<style type="text/css">
+		*{margin:0;padding:0;}
+		ul,li{list-style:none;}
+		#app{width:600px;height:400px;margin:0 auto; text-align: center;padding:30px 0;background-color: rgb(245, 245, 245);}
+		header{font-size:36px;}
+		.txt{width:70%;height:30px;padding:10px;font-size:12px;border:1px solid transparent;}
+		section{width:70%;margin:0 auto;}
+		.wrapper{position:relative;}
+		.icon-down {
+	        position: absolute;
+	        font-size: 24px;
+	        top: 16px;
+	        left: 16px;
+	        cursor: pointer;
+	    }
+	    .list{ position: relative;z-index: 3;}
+	    .list li{display: flex;flex-direction: row;font-size:24px;padding:8px;align-items: center;}
+	    .list li div{width:100%;text-align: left;}
+	    checkbox{width: 20px;
+        height: 20px;
+        margin-left: 10px;}
+        label{
+        	 flex: 1;
+        text-align: left;
+        margin-left: 16px;
+        font-size: 20px;
+        padding: 6px 0;
+        }
+        .edit{
+        	flex: 1;
+        text-align: left;
+        margin-left: 16px;
+        font-size: 20px;
+        padding: 6px 0;
+        }
+        .tab{display: inline-block;margin-left:10px;}
+        .tab li{
+        	 display: inline-block;        	
+        		border-radius: 2px;
+       			 padding: 1px 4px;
+        			margin: 0 2px;
+        }
+        .tab li a{text-decoration: none;color:black;display: inline-block;padding:5px;}
+        .selected{border:1px solid #ccc;}
+        .count{display: inline-block;margin-left:30px;float:left;height:40px;padding:10px;}
+        .clear-completed{background: transparent;border:1px solid #ccc;padding:5px 10px;}
+        .close{margin-right:30px;font-size:16px;color:black;float:right;text-decoration: none;}
+	</style>
+	<script type="text/javascript" src="js/vue.min.js"></script>
+</head>
+<body>
+	<div id="app">
+		<header>
+			<h2>Todos</h2>
+		</header>
+		<section>
+			<div class="wrapper">
+				<span class="icon-down icon-arrow-down" 
+		            v-show="filterItems.length>0" 
+		            @click="selectAll">
+		            </span>
+				<input type="text" class="txt" v-model="title" @keyup.enter="addtodo" placeholder="what need todo"/>
+			</div>
+			<ul class="list">
+				<li v-for="item in filterItems">
+					<div class="">
+						<input type="checkbox" class="checkbox" v-model="item.checked" @change="change(item)"/>
+						<label @dblclick="editTodo(item)" v-show="!item.isEdit" style="width:60%">{{item.title}}</label>
+						<input class="edit" type="text" v-to-focus="item.title" 
+					          v-model="item.title"
+					          @blur="doneEdit(item)"
+					          @keyup.enter="doneEdit(item)"
+					          @keyup.esc="cancelEdit(item)" v-show="item.isEdit"/>
+						<a href="javascript:void(0)" @click="deleteTodo(item)" class="close" v-show="!item.isEdit">X</a>
+					</div>
+				</li>
+			</ul>
+		</section>
+		<footer v-show="filterItems.length>0">
+			<span class="count">
+				<em>{{remain}}</em> items left
+			</span>
+			<ul class="tab">
+				<li><a href="javascript:void(0)" :class="{selected:type=='all'}" @click="show('all')">All</a></li>
+				<li><a href="javascript:void(0)" :class="{selected:type=='active'}" @click="show('active')">Active</a></li>
+				<li><a href="javascript:void(0)" :class="{selected:type=='complete'}" @click="show('complete')">Completed</a></li>
+			</ul>
+			<button class="clear-completed" @click="removeCompleted" v-show="todoList.length > remain">
+	      		Clear completed
+    		</button>
+		</footer>
+	</div>
+	<script>
+		const key="todo-storage-key";
+		var todoStorage={
+			get:function(){
+				var todos=JSON.parse(window.localStorage.getItem(key))||[];
+				return todos;
+			},
+			save:function(items){
+				window.localStorage.setItem(key,JSON.stringify(items));
+			}
+		};
+
+		var todoFilters={
+			all:function(todos){
+				return todos;
+			},
+			complete:function(todos){
+				var newtodos = todos.filter(function(item){return item.checked==true});
+				return newtodos;
+			},
+			active:function(todos){
+				var newtodos = todos.filter(function(item){return item.checked==false});
+				return newtodos;
+			}
+		};
+
+		new Vue({
+			el:"#app",
+			data:{
+				todoList:JSON.parse(window.localStorage.getItem("todo-storage-key"))||[],
+				title:'',
+				editItem:null,
+				type:'all'
+			},
+			methods:{
+				addtodo:function(){
+					if(!(this.title&&this.title.trim()))
+						return false;
+					let newTodo={
+						id:todoStorage.get().length+1,
+						checked:false,
+						title:this.title,
+						isEdit:false
+					}
+					this.todoList.push(newTodo);
+					this.title="";
+				},
+				selectAll:function(){
+
+				},
+				deleteTodo:function(item){
+					console.log(item);
+					this.todoList.splice(this.todoList.indexOf(item),1);
+				},
+				editTodo:function(todo){
+					this.beforeEdit=todo.title;
+					todo.isEdit=true
+					this.editItem=todo;
+				},
+				doneEdit:function(todo){
+					todo.isEdit=false;
+					if(!todo.checked){
+						return
+					}
+
+					this.editItem=null;
+					todo.title=todo.title.trim();
+					if(!todo.title){
+						this.remove(todo);
+					}
+				},
+				cancelEdit:function(todo){
+					this.editItem=null;
+					todo.isEdit=false;
+					todo.title=this.beforeEdit
+				},
+				removeCompleted:function(){
+					this.show("active");
+				},
+				show:function(type){
+					this.type=type;					
+				},
+				change:function(item){
+
+				},
+				toggle:function(item){
+					item.checked=!item.checked;
+				}
+			},
+			watch:{
+				todoList:{
+					handler:function(todos){
+						window.localStorage.setItem("todo-storage-key",JSON.stringify(items));
+					},
+					deep:true
+				}
+			},
+			computed:{
+				remain:function(){
+					return this.todoList.filter(function(item){return !item.checked;}).length;
+				},
+				filterItems:function(){
+					return todoFilters[this.type](this.todoList);
+				},
+				chkAll:{
+					get:function(){
+						return this.remain==0;
+					},
+					set:function(value){
+						this.todoList.map(function(item){
+							item.checked=value;
+						})
+					}
+				}
+			},
+			directives: { //自定义focus指令
+            "to-focus": function (el, binding) {
+                el.focus();
+            }
+        },
+		})
+	</script>
+</body>
+</html>
